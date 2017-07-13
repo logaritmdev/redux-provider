@@ -3,8 +3,13 @@
  * @since 1.0.0
  * @hidden
  */
-var invoke = function(functions, ...args) {
-	functions.forEach(f => f(...args))
+var invoke = function(functions) {
+
+	var args = Array.prototype.slice.call(arguments, 1)
+
+	functions.forEach(function(f) {
+		f.apply(null, args)
+	})
 }
 
 /**
@@ -36,7 +41,7 @@ export function providerMiddleware(groups) {
 
 	var providers = {}
 
-	groups.forEach(group => {
+	groups.forEach(function(group) {
 
 		for (var key in group) {
 
@@ -49,31 +54,40 @@ export function providerMiddleware(groups) {
 		}
 	})
 
-	return ({ dispatch, getState }) => next => action => {
+	return function(obj) {
 
-		var handlers = providers[action.type]
-		if (handlers == null) {
-			return next(action)
+		var dispatch = obj.dispatch
+		var getState = obj.getState
+
+		return function(next) {
+
+			return function(action) {
+
+				var handlers = providers[action.type]
+				if (handlers == null) {
+					return next(action)
+				}
+
+				return new Promise(function(success, failure) {
+
+					var count = 0
+
+					invoke(handlers, action, function(result) {
+
+						// TODO, handle failure
+						if (result.type !== action.type) {
+							dispatch(result)
+							return
+						}
+
+						next(result) // Original action
+
+						if (handlers.length == ++count) {
+							success(getState())
+						}
+					})
+				})
+			}
 		}
-
-		return new Promise((success, failure) => {
-
-			var count = 0
-
-			invoke(handlers, action, result => {
-
-				// TODO, handle failure
-				if (result.type !== action.type) {
-					dispatch(result)
-					return
-				}
-
-				next(result) // Original action
-
-				if (handlers.length == ++count) {
-					success(getState())
-				}
-			})
-		})
 	}
 }
