@@ -85,7 +85,8 @@ export function providerMiddleware(groups) {
 						if (handlers.length == ++count) {
 							success(getState())
 						}
-					})
+
+					}, getState())
 				})
 			}
 		}
