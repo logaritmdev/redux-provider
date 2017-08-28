@@ -1,16 +1,3 @@
-/**
- * @function invoke
- * @since 1.0.0
- * @hidden
- */
-var invoke = function(functions) {
-
-	var args = Array.prototype.slice.call(arguments, 1)
-
-	functions.forEach(function(f) {
-		f.apply(null, args)
-	})
-}
 
 /**
  * @function createProviders
@@ -68,26 +55,37 @@ export function providerMiddleware(groups) {
 					return next(action)
 				}
 
-				return new Promise(function(success, failure) {
+				return Promise.all(handlers.map(function(handler) {
 
-					var count = 0
+					return new Promise(function(success, failure) {
 
-					invoke(handlers, action, function(result) {
+						var dispatcher = function(subaction) {
 
-						// TODO, handle failure
-						if (result.type !== action.type) {
-							dispatch(result)
-							return
+							if (subaction.type === action.type) {
+								next(subaction)
+								success(subaction)
+								return
+							}
+
+							dispatch(subaction)
 						}
 
-						next(result) // Original action
+						try {
 
-						if (handlers.length == ++count) {
-							success(getState())
+							var response = handler.call(null, action, dispatcher, getState())
+							if (response &&
+								response.then) {
+								response.then(success, function(err) {
+									failure(err); console.error(err)
+								})
+							}
+
+						} catch (err) {
+							failure(err); console.error(err)
 						}
 
-					}, getState())
-				})
+					})
+				}))
 			}
 		}
 	}
